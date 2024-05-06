@@ -8,9 +8,10 @@ const Gameboard = (() => {
     
     function addMarker(index, player) {
         if (board[index] === player1.marker || board[index] === player2.marker) {
-            return 'Please choose an empty space to place your marker on'
+            return 'Please choose an empty space to place your marker on';
         } else {
             board[index] = player.marker;
+            gamePlay.round++;
             return `${player.name} has placed their marker.`
         }
     }
@@ -28,26 +29,48 @@ const Gameboard = (() => {
     function checkForWinner() {
         //check wins going through middle
         if ((board[0] === board[4] && board[4] === board[8]) || (board[1] === board[4] && board[4] === board[7]) || (board[2] === board[4] && board[4] === board[6]) || (board[3] === board[4] && board[4] === board[5])) {
-            return board[4];
+            if (board[4] === player1.marker) {
+                player1.increaseWins();
+                return `${player1.name} has won!`;
+            } else {
+                player2.increaseWins();
+                return `${player2.name} has won!`;
+            }
             //next check top or left win
         } else if ((board[0] === board[1] && board[1] === board[2]) || (board[0] === board[3] && board[3] === board[6])) {
-            return board[0];
+            if (board[0] === player1.marker) {
+                player1.increaseWins();
+                return `${player1.name} has won!`;
+            } else {
+                player2.increaseWins();
+                return `${player2.name} has won!`;
+            }
             //next check right or bottom win
         } else if ((board[2] === board[5] && board[5] === board[8]) || (board[6] === board[7] && board[7] === board[8])) {
-            return board[8];
+            if (board[8] === player1.marker) {
+                player1.increaseWins();
+                return `${player1.name} has won!`;
+            } else {
+                player2.increaseWins();
+                return `${player2.name} has won!`;
+            }
         } else {
             return false;
         }
     };
 
-    return {addMarker, showBoard, clearBoard, checkForWinner};
+    function getSpaceMarker(index) {
+        return board[index];
+    }
+
+    return {addMarker, showBoard, clearBoard, checkForWinner, getSpaceMarker};
 })();
 
 function createPlayer(name, marker) {
     let wins = 0
 
     function increaseWins() {
-        wins++;
+        this.wins++;
     }
 
     return {name, marker, wins, increaseWins}
@@ -72,12 +95,13 @@ const gamePlay = (() => {
     }
 
     function resetRound() {
-        round = 1;
+        this.round = 1;
     }
 
     return {declareWinner, round, increaseRound, resetRound};
 })();
 
+//start game button
 document.getElementById("get-player-info").addEventListener("submit", function (e) {
     e.preventDefault();
     let form = document.getElementById("get-player-info");
@@ -119,24 +143,65 @@ function updateMiddleInfo() {
 
 function allowAddMarkers() {
     let gamesquares = document.getElementsByClassName('gamesquare');
-    //console.log(gamesquares)
 
     for (space of gamesquares) {
-        space.addEventListener("click", function(e) {
-            let number = parseInt(e.target.dataset.square);
-            console.log(number);
-            console.log(gamePlay.round);
+        let e = space.target;
+        space.addEventListener("click", addMarkerAndUpdate, {once : true})
+    }
+}
+
+function addMarkerAndUpdate(e) {
+    let gamesquares = document.getElementsByClassName('gamesquare');
+
+    let number = parseInt(e.target.dataset.square);
             if (gamePlay.round%2 === 0) {
                 Gameboard.addMarker(number, player2);
-                gamesquares[number].innerHTML = `${player2.marker}`;
+                gamesquares[number].innerHTML = Gameboard.getSpaceMarker(number);
             } else {
                 Gameboard.addMarker(number, player1);
-                gamesquares[number].innerHTML = `${player1.marker}`;
+                gamesquares[number].innerHTML = Gameboard.getSpaceMarker(number);
             }
             gamesquares[number].classList.remove("empty");
-            Gameboard.showBoard();
-            gamePlay.round++;
-            console.log(Gameboard.checkForWinner());
-        })
+            updateMiddleInfo();
+            let isWinner = Gameboard.checkForWinner();
+            if (isWinner) {
+                for (space of gamesquares) {
+                    space.removeEventListener("click", addMarkerAndUpdate);
+                    space.classList.remove("empty");
+                }
+                updatePlayerDisplays();
+                let newMiddleInfo = document.getElementById("middle-info");
+                newMiddleInfo.innerHTML = `<span>${isWinner}</span>
+                <button id="another-game" type="button">Another Game?</button>`;
+                let startGameButton = document.getElementById("another-game");
+                startGameButton.addEventListener("click", function() {
+                    newGame();
+                })
+            } else if (gamePlay.round == 10) {
+                for (space of gamesquares) {
+                    space.removeEventListener("click", addMarkerAndUpdate);
+                    space.classList.remove("empty");
+                }
+                updatePlayerDisplays();
+                let newMiddleInfo = document.getElementById("middle-info");
+                newMiddleInfo.innerHTML = `<span>It's a tie!</span>
+                <button id="another-game" type="button">Another Game?</button>`;
+                let startGameButton = document.getElementById("another-game");
+                startGameButton.addEventListener("click", function() {
+                    newGame();
+                })
+            }
+}
+
+function newGame() {
+    let gamesquares = document.getElementsByClassName('gamesquare');
+    Gameboard.clearBoard();
+    gamePlay.resetRound();
+    for (space of gamesquares) {
+        space.innerHTML = "";
+        space.classList.add("empty");
     }
+    updatePlayerDisplays();
+    updateMiddleInfo();
+    allowAddMarkers();
 }
